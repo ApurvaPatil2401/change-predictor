@@ -58,8 +58,7 @@ def main() -> None:
 
         engine = ImpactEngine(dependency_graph)
 
-        direct_impacts = engine.find_direct_impacts(target_file)
-        transitive_impacts = engine.find_transitive_impacts(target_file)
+        report = engine.analyze(target_file)
 
         print("=" * 60)
         print("Impact Analysis")
@@ -70,8 +69,8 @@ def main() -> None:
         print("Direct Impact")
         print("-" * 60)
 
-        if direct_impacts:
-            for file in direct_impacts:
+        if report.direct_impacts:
+            for file in report.direct_impacts:
                 print(f"✔ {file}")
         else:
             print("None")
@@ -81,14 +80,28 @@ def main() -> None:
         print("Transitive Impact")
         print("-" * 60)
 
-        if transitive_impacts:
-            for file in transitive_impacts:
+        if report.transitive_impacts:
+            for file in report.transitive_impacts:
                 print(f"✔ {file}")
         else:
             print("None")
 
         print()
-        print(f"Total Impacted Files: {len(transitive_impacts)}")
+        print(f"Total Impacted Files: {len(report.transitive_impacts)}")
+        print()
+        print("Risk Assessment")
+        print("-" * 60)
+        print(f"Risk Level : {report.risk_level}")
+        print(f"Risk Score : {report.score}")
+
+        print()
+        print("Reasons")
+        print("-" * 60)
+
+        for reason in report.reasons:
+            print(f"• {reason}")
+
+        print()
         print("=" * 60)
 
         return
@@ -129,7 +142,6 @@ def main() -> None:
 
     print()
     print("=" * 60)
-
-
+    return 
 if __name__ == "__main__":
     main()
