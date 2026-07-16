@@ -9,6 +9,10 @@ from change_predictor.models.repository import Repository
 
 
 def build_repository(repository_path: Path) -> Repository:
+    """
+    Build the repository model by scanning and parsing Python files.
+    """
+
     scanner = RepositoryScanner(str(repository_path))
     parser = PythonParser()
 
@@ -21,6 +25,9 @@ def build_repository(repository_path: Path) -> Repository:
 
 
 def main() -> None:
+    """
+    Entry point for the Change Predictor CLI.
+    """
 
     if len(sys.argv) not in (2, 4):
         print(
@@ -41,14 +48,18 @@ def main() -> None:
     graph_builder = GraphBuilder()
     dependency_graph = graph_builder.build(repository)
 
-    # Impact Mode
+    # -------------------------------------------------
+    # Impact Analysis Mode
+    # -------------------------------------------------
+
     if len(sys.argv) == 4 and sys.argv[2] == "--impact":
 
         target_file = sys.argv[3]
 
         engine = ImpactEngine(dependency_graph)
 
-        impacted = engine.find_direct_impacts(target_file)
+        direct_impacts = engine.find_direct_impacts(target_file)
+        transitive_impacts = engine.find_transitive_impacts(target_file)
 
         print("=" * 60)
         print("Impact Analysis")
@@ -56,23 +67,36 @@ def main() -> None:
         print(f"Target File: {target_file}")
         print()
 
-        if impacted:
-            print("Directly Affected Files")
-            print("-" * 60)
+        print("Direct Impact")
+        print("-" * 60)
 
-            for file in impacted:
+        if direct_impacts:
+            for file in direct_impacts:
                 print(f"✔ {file}")
-
-            print()
-            print(f"Total Direct Impact: {len(impacted)}")
-
         else:
-            print("No direct impacts found.")
+            print("None")
 
+        print()
+
+        print("Transitive Impact")
+        print("-" * 60)
+
+        if transitive_impacts:
+            for file in transitive_impacts:
+                print(f"✔ {file}")
+        else:
+            print("None")
+
+        print()
+        print(f"Total Impacted Files: {len(transitive_impacts)}")
         print("=" * 60)
+
         return
 
-    # Normal Analysis Mode
+    # -------------------------------------------------
+    # Repository Analysis Mode
+    # -------------------------------------------------
+
     print("=" * 60)
     print("Change Predictor")
     print("=" * 60)
