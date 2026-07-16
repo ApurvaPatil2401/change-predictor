@@ -29,9 +29,13 @@ class PythonParser:
                     imports.append(alias.name)
 
             elif isinstance(node, ast.ImportFrom):
-                module = node.module or ""
-                for alias in node.names:
-                    imports.append(f"{module}.{alias.name}")
+                # Store the imported module, not the imported symbol.
+                # Example:
+                # from change_predictor.models.repository import Repository
+                # becomes:
+                # change_predictor.models.repository
+                if node.module:
+                    imports.append(node.module)
 
             elif isinstance(node, ast.ClassDef):
                 classes.append(node.name)
