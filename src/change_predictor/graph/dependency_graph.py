@@ -12,14 +12,12 @@ class DependencyGraph:
     def __init__(self) -> None:
         self._graph: Dict[str, List[Dependency]] = defaultdict(list)
 
-    def add_dependency(self, dependency: Dependency) -> None:
-        """
-        Add a dependency relationship to the graph.
+    def add_dependency(self, dependency):
 
-        Args:
-            dependency: The dependency to add.
-        """
-        self._graph[dependency.source].append(dependency)
+        dependencies = self._graph[dependency.source]
+
+        if dependency not in dependencies:
+            dependencies.append(dependency)
 
     def get_dependencies(self, source: str) -> List[Dependency]:
         """

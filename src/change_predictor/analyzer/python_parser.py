@@ -32,11 +32,9 @@ class PythonParser:
                     imports.append(alias.name)
 
             elif isinstance(node, ast.ImportFrom):
-                module = node.module or ""
-
-                for alias in node.names:
-                    imports.append(f"{module}.{alias.name}")
-
+                if node.module:
+                    imports.append(node.module)
+                    
             # -------------------------
             # Classes
             # -------------------------
