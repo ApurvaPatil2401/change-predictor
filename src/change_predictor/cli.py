@@ -8,6 +8,8 @@ from change_predictor.impact.impact_engine import ImpactEngine
 from change_predictor.models.repository import Repository
 from change_predictor.simulation.simulation_engine import SimulationEngine
 from change_predictor.callgraph.call_graph_builder import CallGraphBuilder
+from change_predictor.reporting.report_generator import ReportGenerator
+from change_predictor.simulation.simulation_engine import SimulationEngine
 
 
 def build_repository(repository_path: Path) -> Repository:
@@ -60,59 +62,80 @@ def main() -> None:
 
     if len(sys.argv) == 4 and sys.argv[2] == "--impact":
 
-        target_file = sys.argv[3]
+            target_file = sys.argv[3]
 
-        engine = ImpactEngine(dependency_graph)
-        report = engine.analyze(target_file)
+            impact_engine = ImpactEngine(dependency_graph)
+            simulation_engine = SimulationEngine()
 
-        print("=" * 60)
-        print("Impact Analysis")
-        print("=" * 60)
-        print(f"Target File: {target_file}")
-        print()
+            generator = ReportGenerator(
+                impact_engine,
+                simulation_engine,
+            )
 
-        print("Direct Impact")
-        print("-" * 60)
+            report = generator.generate(target_file)
 
-        if report.direct_impacts:
-            for file in report.direct_impacts:
-                print(f"✔ {file}")
-        else:
-            print("None")
+            print("=" * 60)
+            print("Impact Analysis")
+            print("=" * 60)
 
-        print()
+            print(f"Target File : {report.target}")
 
-        print("Transitive Impact")
-        print("-" * 60)
+            print()
 
-        if report.transitive_impacts:
-            for file in report.transitive_impacts:
-                print(f"✔ {file}")
-        else:
-            print("None")
+            print("Direct Impact")
+            print("-" * 60)
 
-        print()
-        print(f"Total Impacted Files: {len(report.transitive_impacts)}")
+            if report.risk.direct_impacts:
+                for file in report.risk.direct_impacts:
+                    print(f"✔ {file}")
+            else:
+                print("None")
 
-        print()
-        print("Risk Assessment")
-        print("-" * 60)
-        print(f"Risk Level : {report.risk_level}")
-        print(f"Risk Score : {report.score}")
+            print()
 
-        print()
+            print("Transitive Impact")
+            print("-" * 60)
 
-        print("Reasons")
-        print("-" * 60)
+            if report.risk.transitive_impacts:
+                for file in report.risk.transitive_impacts:
+                    print(f"✔ {file}")
+            else:
+                print("None")
 
-        for reason in report.reasons:
-            print(f"• {reason}")
+            print()
 
-        print()
-        print("=" * 60)
+            print("Risk Assessment")
+            print("-" * 60)
+            print(f"Risk Level : {report.risk.risk_level}")
+            print(f"Risk Score : {report.risk.score}")
 
-        return
+            print()
 
+            print("Reasons")
+            print("-" * 60)
+
+            for reason in report.risk.reasons:
+                print(f"• {reason}")
+
+            print()
+
+            print("Simulation")
+            print("-" * 60)
+            print(f"Estimated Effort : {report.simulation.estimated_effort}")
+            print(f"Confidence       : {report.simulation.confidence}%")
+
+            print()
+
+            print("Recommendations")
+            print("-" * 60)
+
+            for recommendation in report.simulation.recommendations:
+                print(f"• {recommendation}")
+
+            print()
+            print("=" * 60)
+
+            return
     # =====================================================
     # CHANGE SIMULATION
     # =====================================================
