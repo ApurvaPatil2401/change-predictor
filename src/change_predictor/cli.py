@@ -7,6 +7,7 @@ from change_predictor.graph.graph_builder import GraphBuilder
 from change_predictor.impact.impact_engine import ImpactEngine
 from change_predictor.models.repository import Repository
 from change_predictor.simulation.simulation_engine import SimulationEngine
+from change_predictor.callgraph.call_graph_builder import CallGraphBuilder
 
 
 def build_repository(repository_path: Path) -> Repository:
@@ -49,6 +50,9 @@ def main() -> None:
 
     graph_builder = GraphBuilder()
     dependency_graph = graph_builder.build(repository)
+
+    call_graph_builder = CallGraphBuilder()
+    call_graph = call_graph_builder.build(repository)
 
     # =====================================================
     # IMPACT ANALYSIS
@@ -191,6 +195,23 @@ def main() -> None:
                 print(f"  └──> {dependency.target}")
 
     print()
+    print()
+    print("Call Graph")
+    print("-" * 60)
+
+    graph = call_graph.get_graph()
+
+    if not graph:
+        print("No function calls found.")
+    else:
+        for caller, callees in graph.items():
+
+            if not callees:
+                continue
+            print(f"\n{caller}")
+
+            for callee in callees:
+                print(f"  └──> {callee}")
     print("=" * 60)
 
 

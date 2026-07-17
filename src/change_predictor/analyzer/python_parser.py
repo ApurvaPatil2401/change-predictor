@@ -2,17 +2,15 @@ import ast
 from pathlib import Path
 
 from change_predictor.models.file import File
+from change_predictor.symbols.symbol import Symbol
 
 
 class PythonParser:
     """
-    Parses a Python source file using Python's built-in AST module.
+    Parses a Python source file using Python AST.
     """
 
     def parse(self, file_path: Path) -> File:
-        """
-        Parse a Python file and extract imports, classes, and functions.
-        """
 
         source = file_path.read_text(encoding="utf-8")
 
@@ -21,34 +19,80 @@ class PythonParser:
         imports = []
         classes = []
         functions = []
+        symbols = []
 
-        for node in ast.walk(tree):
+        for node in tree.body:
+
+            # -------------------------
+            # Imports
+            # -------------------------
 
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     imports.append(alias.name)
 
             elif isinstance(node, ast.ImportFrom):
-                # Store the imported module, not the imported symbol.
-                # Example:
-                # from change_predictor.models.repository import Repository
-                # becomes:
-                # change_predictor.models.repository
-                if node.module:
-                    imports.append(node.module)
+                module = node.module or ""
+
+                for alias in node.names:
+                    imports.append(f"{module}.{alias.name}")
+
+            # -------------------------
+            # Classes
+            # -------------------------
 
             elif isinstance(node, ast.ClassDef):
+
                 classes.append(node.name)
 
-            elif isinstance(node, ast.FunctionDef):
+                symbols.append(
+                    Symbol(
+                        name=node.name,
+                        symbol_type="class",
+                        file=file_path.name,
+                        line=node.lineno,
+                    )
+                )
+
+                # -------------------------
+                # Methods
+                # -------------------------
+
+                for child in node.body:
+
+                    if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+
+                        symbols.append(
+                            Symbol(
+                                name=child.name,
+                                symbol_type="method",
+                                file=file_path.name,
+                                line=child.lineno,
+                                parent=node.name,
+                            )
+                        )
+
+            # -------------------------
+            # Top-level Functions
+            # -------------------------
+
+            elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+
                 functions.append(node.name)
 
-            elif isinstance(node, ast.AsyncFunctionDef):
-                functions.append(node.name)
+                symbols.append(
+                    Symbol(
+                        name=node.name,
+                        symbol_type="function",
+                        file=file_path.name,
+                        line=node.lineno,
+                    )
+                )
 
         return File(
             path=str(file_path),
             imports=sorted(imports),
             classes=sorted(classes),
             functions=sorted(functions),
+            symbols=symbols,
         )
