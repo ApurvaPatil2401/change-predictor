@@ -4,7 +4,7 @@ from change_predictor.symbols.symbol_table import SymbolTable
 
 class SymbolBuilder:
     """
-    Builds a SymbolTable from parsed repository symbols.
+    Builds a repository-wide symbol table.
     """
 
     def build(self, repository: Repository) -> SymbolTable:

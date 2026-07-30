@@ -1,33 +1,38 @@
 from pathlib import Path
 
 from change_predictor.graph.dependency_graph import DependencyGraph
-from change_predictor.models import repository
 from change_predictor.models.dependency import Dependency
 from change_predictor.models.repository import Repository
 
 
 class GraphBuilder:
     """
-    Builds a dependency graph from an analyzed repository.
+    Builds a dependency graph from repository imports.
     """
 
     def build(self, repository: Repository) -> DependencyGraph:
-        """
-        Build a dependency graph from the repository.
-
-        Args:
-            repository: Repository model containing parsed files.
-
-        Returns:
-            DependencyGraph containing import relationships.
-        """
 
         graph = DependencyGraph()
 
-        repository_modules = {
-            Path(file.path).stem: Path(file.path).name
-            for file in repository.files
-        }
+        # Build lookup table for every repository module
+        repository_modules = {}
+
+        for file in repository.files:
+
+            path = Path(file.path)
+
+            filename = path.name
+            stem = path.stem
+
+            # repository
+            repository_modules[stem] = filename
+
+            # change_predictor.models.repository
+            qualified = ".".join(
+                path.with_suffix("").parts[-3:]
+            )
+
+            repository_modules[qualified] = filename
 
         for file in repository.files:
 
@@ -35,19 +40,28 @@ class GraphBuilder:
 
             for imported_module in file.imports:
 
-                # Example:
-                # change_predictor.models.repository
-                # becomes
-                # repository
-                module_name = imported_module.split(".")[-1]
+                target = None
 
-                if module_name in repository_modules:
+                # Exact match
+                if imported_module in repository_modules:
+                    target = repository_modules[imported_module]
 
+                # Last module name
+                elif imported_module.split(".")[-1] in repository_modules:
+                    target = repository_modules[
+                        imported_module.split(".")[-1]
+                    ]
+
+                if (
+                    target
+                    and target != source
+                ):
                     graph.add_dependency(
                         Dependency(
                             source=source,
-                            target=repository_modules[module_name],
+                            target=target,
                             dependency_type="import",
                         )
                     )
+
         return graph

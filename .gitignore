@@ -1,21 +1,22 @@
 # Python
 __pycache__/
-*.py[cod]
+*.pyc
 *.pyo
-*.pyd
 
-# Virtual environments
+# Virtual Environment
 venv/
-.venv/
-env/
+.env
+
+# Generated Reports
+*.pdf
+*.html
+*.json
+*.md
+*.mmd
 
 # IDE
 .vscode/
 .idea/
-
-# Testing
-.pytest_cache/
-.mypy_cache/
 
 # OS
 .DS_Store

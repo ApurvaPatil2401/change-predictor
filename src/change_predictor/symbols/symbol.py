@@ -9,7 +9,8 @@ class Symbol:
     """
 
     name: str
-    symbol_type: str      # class, function, method
+    symbol_type: str
     file: str
     line: int
+    qualified_name: str
     parent: Optional[str] = None
