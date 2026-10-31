@@ -2,19 +2,22 @@
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 
 @dataclass
 class ChangedFile:
+    """Represents a changed file between two Git revisions."""
+
     path: str
     status: str
     added_lines: int
     deleted_lines: int
+    old_path: Optional[str] = None
 
 
 class GitDiffAnalyzer:
-    """Extract changed Python files and line counts between Git revisions."""
+    """Extract Python file changes and line counts between revisions."""
 
     def __init__(self, repository_path: str = "."):
         self.repository_path = Path(repository_path).resolve()
@@ -36,12 +39,57 @@ class GitDiffAnalyzer:
         return result.stdout
 
     def analyze(
-        self, base: str = "HEAD~1", head: str = "HEAD"
+        self,
+        base: str = "HEAD~1",
+        head: str = "HEAD",
     ) -> List[ChangedFile]:
-        """Return Python file changes with added/deleted line counts."""
+        """Return Python file changes, including rename information."""
 
         self._run_git("rev-parse", "--verify", f"{base}^{{commit}}")
         self._run_git("rev-parse", "--verify", f"{head}^{{commit}}")
+
+        status_output = self._run_git(
+            "diff",
+            "--name-status",
+            "-z",
+            "-M",
+            base,
+            head,
+            "--",
+            "*.py",
+        )
+
+        status_parts = status_output.split("\0")
+        status_by_path = {}
+        index = 0
+
+        while index < len(status_parts):
+            status = status_parts[index]
+            index += 1
+
+            if not status:
+                continue
+
+            if status.startswith(("R", "C")):
+                if index + 1 >= len(status_parts):
+                    raise RuntimeError("Incomplete Git rename record.")
+
+                old_path = status_parts[index]
+                new_path = status_parts[index + 1]
+                index += 2
+
+                status_by_path[new_path] = (
+                    status[0],
+                    old_path,
+                )
+            else:
+                if index >= len(status_parts):
+                    raise RuntimeError("Incomplete Git status record.")
+
+                path = status_parts[index]
+                index += 1
+
+                status_by_path[path] = (status, None)
 
         raw = self._run_git(
             "diff",
@@ -66,80 +114,39 @@ class GitDiffAnalyzer:
                 continue
 
             parts = record.split("\t", 2)
+
             if len(parts) != 3:
                 continue
 
             added, deleted, path = parts
 
-            # With -z, a rename/copy record has an empty path field,
-            # followed by the old path and then the new path.
             if path == "":
                 if index + 1 >= len(records):
-                    break
+                    raise RuntimeError("Incomplete Git numstat rename record.")
 
                 old_path = records[index]
                 new_path = records[index + 1]
                 index += 2
+                path = new_path
+            else:
+                old_path = None
 
-                changed_files.append(
-                    ChangedFile(
-                        path=new_path,
-                        status="R",
-                        added_lines=0 if added == "-" else int(added),
-                        deleted_lines=0 if deleted == "-" else int(deleted),
-                    )
-                )
-                continue
+            status, recorded_old_path = status_by_path.get(
+                path,
+                ("M", None),
+            )
+
+            if recorded_old_path is not None:
+                old_path = recorded_old_path
 
             changed_files.append(
                 ChangedFile(
                     path=path,
-                    status="M",
+                    status=status,
                     added_lines=0 if added == "-" else int(added),
                     deleted_lines=0 if deleted == "-" else int(deleted),
+                    old_path=old_path,
                 )
             )
-
-        # Ask Git for statuses separately, using NUL-delimited output.
-        status_output = self._run_git(
-            "diff",
-            "--name-status",
-            "-z",
-            "-M",
-            base,
-            head,
-            "--",
-            "*.py",
-        )
-        status_parts = status_output.split("\0")
-        status_by_path = {}
-        index = 0
-
-        while index < len(status_parts):
-            status = status_parts[index]
-            index += 1
-
-            if not status:
-                continue
-
-            if status.startswith(("R", "C")):
-                if index + 1 >= len(status_parts):
-                    break
-
-                old_path = status_parts[index]
-                new_path = status_parts[index + 1]
-                index += 2
-                status_by_path[new_path] = status[0]
-            else:
-                if index >= len(status_parts):
-                    break
-
-                path = status_parts[index]
-                index += 1
-                status_by_path[path] = status
-
-        # Ensure added/deleted/renamed status is accurate.
-        for item in changed_files:
-            item.status = status_by_path.get(item.path, item.status)
 
         return changed_files

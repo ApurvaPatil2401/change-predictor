@@ -1,13 +1,12 @@
 
 from dataclasses import dataclass
-from typing import List
+from pathlib import Path
+from typing import List, Optional
 
-from anyio import Path
-
+from change_predictor.git_analysis.diff_analyzer import GitDiffAnalyzer
 from change_predictor.git_analysis.line_change_parser import (
     GitLineChangeParser,
 )
-from change_predictor.git_analysis.line_changes import FileLineChanges
 from change_predictor.git_analysis.symbol_mapper import ChangedSymbolMapper
 from change_predictor.impact.impact_engine import ImpactEngine
 from change_predictor.models.risk_report import RiskReport
@@ -22,6 +21,8 @@ class ChangedFileImpact:
     deleted_lines: int
     changed_symbols: List[str]
     risk_report: RiskReport
+    status: str
+    old_path: Optional[str] = None
 
 
 @dataclass
@@ -35,7 +36,7 @@ class ChangeImpactReport:
 
 
 class ChangeImpactAnalyzer:
-    """Connect Git line changes and symbol mapping to existing impact analysis."""
+    """Connect Git changes, symbol mapping, and risk analysis."""
 
     def __init__(
         self,
@@ -44,7 +45,9 @@ class ChangeImpactAnalyzer:
     ):
         self.repository_path = repository_path
         self.impact_engine = impact_engine
+
         self.line_parser = GitLineChangeParser(repository_path)
+        self.diff_analyzer = GitDiffAnalyzer(repository_path)
         self.symbol_mapper = ChangedSymbolMapper(repository_path)
 
     def analyze(
@@ -52,7 +55,10 @@ class ChangeImpactAnalyzer:
         base: str = "HEAD~1",
         head: str = "HEAD",
     ) -> ChangeImpactReport:
+
         line_changes = self.line_parser.parse(base, head)
+        diff_changes = self.diff_analyzer.analyze(base, head)
+
         symbols = self.symbol_mapper.map_changes(line_changes)
 
         symbols_by_file = {}
@@ -61,9 +67,19 @@ class ChangeImpactAnalyzer:
                 symbol.qualified_name
             )
 
+        diff_by_path = {
+            change.path: change
+            for change in diff_changes
+        }
+
         file_impacts = []
 
         for change in line_changes:
+            diff_change = diff_by_path.get(change.path)
+
+            status = diff_change.status if diff_change else "M"
+            old_path = diff_change.old_path if diff_change else None
+
             target_name = Path(change.path).name
             risk_report = self.impact_engine.analyze(target_name)
 
@@ -76,6 +92,8 @@ class ChangeImpactAnalyzer:
                         set(symbols_by_file.get(change.path, []))
                     ),
                     risk_report=risk_report,
+                    status=status,
+                    old_path=old_path,
                 )
             )
 
